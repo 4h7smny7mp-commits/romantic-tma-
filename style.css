@@ -1,8 +1,6 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-html, body {
-  height: 100%;
-}
+html, body { height: 100%; }
 
 body {
   height: 100dvh;
@@ -18,7 +16,6 @@ body {
   width: 100%;
   height: 100%;
 }
-
 #stars { z-index: 0; }
 #hearts { z-index: 5; pointer-events: none; }
 
@@ -27,7 +24,6 @@ body {
   z-index: 1;
   height: 100%;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 24px;
@@ -35,14 +31,12 @@ body {
   padding-bottom: calc(24px + env(safe-area-inset-bottom));
 }
 
-/* Конверт */
-.envelope {
+/* ---------- Конверт ---------- */
+.float {
   position: relative;
   width: min(72vw, 280px);
   height: min(48vw, 186px);
-  cursor: pointer;
   animation: float 4s ease-in-out infinite;
-  filter: drop-shadow(0 0 14px rgba(255, 150, 170, 0.45));
 }
 
 @keyframes float {
@@ -50,105 +44,175 @@ body {
   50% { transform: translateY(-12px); }
 }
 
+.envelope {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  filter: drop-shadow(0 0 14px rgba(255, 150, 170, 0.45));
+  transition: transform 1.4s cubic-bezier(0.5, 0, 0.8, 0.4), opacity 1.2s ease 0.3s;
+}
+
+/* Конверт и письмо улетают вверх после второго тапа */
+.envelope.fly {
+  transform: translateY(-130vh) rotate(-4deg);
+  opacity: 0;
+}
+
+.envelope.gone { display: none; }
+
 .envelope .body {
   position: absolute;
   inset: 0;
+  z-index: 1;
   background: linear-gradient(160deg, #f7d9c4, #e8a6a0);
   border-radius: 8px;
   box-shadow: 0 0 22px rgba(255, 190, 120, 0.35);
 }
 
+/* Клапан закрыт: сверху, поверх письма */
 .envelope .flap {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 50%;
+  z-index: 3;
   background: linear-gradient(180deg, #f2c3b0, #d98b9a);
   clip-path: polygon(0 0, 100% 0, 50% 100%);
   transform-origin: top center;
-  transition: transform 0.8s ease;
-  z-index: 3;
+  transition: transform 0.8s ease, z-index 0s linear 0.4s;
 }
 
+/* Письмо: внутри конверта, скрыто, пока конверт закрыт */
 .envelope .letter {
   position: absolute;
   left: 8%;
   right: 8%;
   top: 10%;
   height: 80%;
+  z-index: 2;
   background: #fffaf3;
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 12px;
-  transition: transform 1s ease;
-  z-index: 2;
+  opacity: 0;
+  transform: translateY(0);
+  transition: transform 1.2s ease 0.4s, opacity 0.4s ease 0.4s;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
 .letter-text {
   font-family: 'Playfair Display', serif;
   font-size: 18px;
+  line-height: 1.4;
   color: #6b1f2e;
   text-align: center;
-  opacity: 0;
-  transition: opacity 0.8s ease 0.6s;
 }
 
-/* Состояние «открыт» */
+/* Открыт: клапан уходит назад, письмо выезжает вверх над конвертом */
 .envelope.opened .flap {
   transform: rotateX(180deg);
+  z-index: 0;
+  transition: transform 0.8s ease, z-index 0s;
 }
 
 .envelope.opened .letter {
-  transform: translateY(-120%) scale(1.1);
-}
-
-.envelope.opened .letter-text {
   opacity: 1;
+  transform: translateY(-125%) scale(1.05);
 }
 
-/* Солнце */
+/* ---------- Солнце ---------- */
 .sun {
   position: absolute;
-  top: 12%;
-  width: min(60vw, 220px);
-  height: min(60vw, 220px);
-  transform: scale(0);
+  top: 14%;
+  width: min(70vw, 260px);
+  height: min(70vw, 260px);
+  transform: scale(0.2);
   opacity: 0;
+  filter: blur(14px);
   pointer-events: none;
 }
 
 .sun.sun-visible {
   transform: scale(1);
   opacity: 1;
-  transition: transform 1.2s ease, opacity 1.2s ease;
+  filter: blur(0);
+  transition: transform 2.2s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 2s ease, filter 2s ease;
 }
 
-.sun .core {
+.sun > div {
   position: absolute;
-  inset: 25%;
   border-radius: 50%;
-  background: radial-gradient(circle, #fff3b0 0%, #ffc94a 55%, #ff9a1f 100%);
-  box-shadow: 0 0 40px rgba(255, 200, 80, 0.8), 0 0 80px rgba(255, 150, 40, 0.5);
 }
 
+/* Мягкое ореольное свечение */
+.sun .glow {
+  inset: -60%;
+  background: radial-gradient(circle,
+    rgba(255, 214, 120, 0.55) 0%,
+    rgba(255, 150, 60, 0.22) 32%,
+    rgba(255, 110, 40, 0.06) 55%,
+    transparent 70%);
+  animation: breathe 6s ease-in-out infinite;
+}
+
+/* Лучи: тонкие, неравномерные, плавно растворяются к краю */
 .sun .rays {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: repeating-conic-gradient(from 0deg, rgba(255, 210, 90, 0.9) 0deg 6deg, transparent 6deg 20deg);
-  -webkit-mask: radial-gradient(circle, transparent 35%, #000 40%);
-          mask: radial-gradient(circle, transparent 35%, #000 40%);
-  animation: spin 20s linear infinite;
+  inset: -28%;
+  background: repeating-conic-gradient(from 0deg,
+    rgba(255, 230, 150, 0.7) 0deg 1.2deg,
+    transparent 1.2deg 9deg,
+    rgba(255, 200, 110, 0.5) 9deg 10deg,
+    transparent 10deg 24deg,
+    rgba(255, 230, 150, 0.6) 24deg 25deg,
+    transparent 25deg 40deg);
+  -webkit-mask: radial-gradient(circle, transparent 30%, #000 42%, #000 58%, transparent 74%);
+          mask: radial-gradient(circle, transparent 30%, #000 42%, #000 58%, transparent 74%);
+  filter: blur(0.6px);
+  animation: spin 60s linear infinite;
+}
+
+/* Внешняя корона: пламя от центра к краю */
+.sun .corona {
+  inset: 8%;
+  background: radial-gradient(circle,
+    #fffbe8 0%,
+    #ffe9a0 30%,
+    #ffc24a 52%,
+    #ff9a2e 68%,
+    rgba(255, 120, 40, 0.35) 80%,
+    transparent 88%);
+  filter: blur(3px);
+  animation: breathe 4s ease-in-out infinite;
+}
+
+/* Ядро: яркий белый центр, тёплый край */
+.sun .core {
+  inset: 26%;
+  background: radial-gradient(circle at 42% 38%,
+    #ffffff 0%,
+    #fff8d6 30%,
+    #ffe27a 62%,
+    #ffb830 88%,
+    #ff9a20 100%);
+  box-shadow:
+    0 0 18px rgba(255, 245, 200, 0.95),
+    0 0 42px rgba(255, 210, 110, 0.8),
+    0 0 90px rgba(255, 150, 50, 0.5);
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
-/* Неоновый текст */
+@keyframes breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.82; transform: scale(1.04); }
+}
+
+/* ---------- Неоновый текст ---------- */
 .neon-text {
   position: absolute;
   bottom: 14%;
@@ -172,8 +236,8 @@ body {
 .neon-text.visible {
   opacity: 1;
   filter: blur(0);
-  transition: opacity 1.5s ease, filter 1.5s ease;
-  animation: pulse 2.5s ease-in-out 1.5s infinite;
+  transition: opacity 1.8s ease 1s, filter 1.8s ease 1s;
+  animation: pulse 2.5s ease-in-out 3s infinite;
 }
 
 @keyframes pulse {
@@ -181,7 +245,7 @@ body {
   50% { opacity: 0.75; }
 }
 
-/* Подсказка */
+/* ---------- Подсказка ---------- */
 .hint {
   position: absolute;
   bottom: 6%;
@@ -190,11 +254,9 @@ body {
   transition: opacity 0.6s ease;
 }
 
-.hint.hidden {
-  opacity: 0;
-}
+.hint.hidden { opacity: 0; }
 
-/* Кнопка звука */
+/* ---------- Кнопка звука ---------- */
 #sound-toggle {
   position: fixed;
   top: calc(12px + env(safe-area-inset-top));
@@ -211,7 +273,6 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Адаптив */
 @media (max-width: 360px) {
   .letter-text { font-size: 16px; }
   .neon-text { font-size: 16px; }

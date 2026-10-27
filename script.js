@@ -1,29 +1,17 @@
 (() => {
-  // ---------- Telegram WebApp ----------
-  const tg = window.Telegram?.WebApp;
-  if (tg) {
-    tg.ready();
-    tg.expand();
-    tg.setHeaderColor?.('#0b0f2a');
-    tg.setBackgroundColor?.('#0b0f2a');
-  }
-  const haptic = () => {
-    try { tg?.HapticFeedback?.impactOccurred('light'); } catch (_) {}
-  };
+  const dpr = window.devicePixelRatio || 1;
 
   // ---------- Звёзды ----------
   const starsCanvas = document.getElementById('stars');
   const sctx = starsCanvas.getContext('2d');
   let stars = [];
   let shootingStar = null;
-  const dpr = window.devicePixelRatio || 1;
 
   function resizeStars() {
     starsCanvas.width = window.innerWidth * dpr;
     starsCanvas.height = window.innerHeight * dpr;
     sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const count = 150;
-    stars = Array.from({ length: count }, () => ({
+    stars = Array.from({ length: 150 }, () => ({
       x: Math.random() * window.innerWidth,
       y: Math.random() * window.innerHeight,
       r: 0.3 + Math.random() * 1.5,
@@ -32,27 +20,22 @@
     }));
   }
 
-  function spawnShootingStar() {
-    shootingStar = {
-      x: Math.random() * window.innerWidth * 0.8,
-      y: Math.random() * window.innerHeight * 0.4,
-      vx: 6,
-      vy: 3,
-      life: 60
-    };
-  }
-
   function drawStars(t) {
     sctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
     for (const s of stars) {
-      const alpha = 0.5 + 0.5 * Math.sin(t * s.speed + s.phase);
-      sctx.globalAlpha = alpha;
+      sctx.globalAlpha = 0.5 + 0.5 * Math.sin(t * s.speed + s.phase);
       sctx.fillStyle = '#fff';
       sctx.beginPath();
       sctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
       sctx.fill();
     }
-    if (!shootingStar && Math.random() < 0.002) spawnShootingStar();
+    if (!shootingStar && Math.random() < 0.002) {
+      shootingStar = {
+        x: Math.random() * window.innerWidth * 0.8,
+        y: Math.random() * window.innerHeight * 0.4,
+        vx: 6, vy: 3, life: 60
+      };
+    }
     if (shootingStar) {
       sctx.globalAlpha = shootingStar.life / 60;
       sctx.strokeStyle = '#fff';
@@ -109,22 +92,17 @@
   function drawHearts(t) {
     hctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
     const h = window.innerHeight;
-    if (heartsActive) {
-      // ~40 сердечек в секунду при 60 FPS
-      if (Math.random() < 40 / 60) spawnHeart();
-    }
+    if (heartsActive && Math.random() < 40 / 60) spawnHeart(); // ~40 в секунду при 60 FPS
     hearts = hearts.filter(p => p.y < h + p.size);
     for (const p of hearts) {
       p.y += p.speed;
       const x = p.x + Math.sin(t * 0.002 + p.phase) * p.swing;
-      const fade = Math.max(0, Math.min(1, (h - p.y) / (h * 0.25)));
-      hctx.globalAlpha = fade;
+      hctx.globalAlpha = Math.max(0, Math.min(1, (h - p.y) / (h * 0.25)));
       drawHeart(x, p.y, p.size, p.color);
     }
     hctx.globalAlpha = 1;
   }
 
-  // ---------- Главный цикл ----------
   function loop(t) {
     drawStars(t);
     drawHearts(t);
@@ -151,14 +129,14 @@
     }, 100);
   }
 
-  function playMusic() {
-    audio.play().then(() => {
+  function startMusic() {
+    return audio.play().then(() => {
       musicOn = true;
       soundBtn.textContent = '🔊';
-      fadeIn();
+      return true;
     }).catch(() => {
-      // Нет файла или браузер заблокировал звук: кнопка остаётся рабочей
       soundBtn.textContent = '🔇';
+      return false;
     });
   }
 
@@ -169,10 +147,7 @@
       musicOn = false;
       soundBtn.textContent = '🔇';
     } else {
-      audio.play().then(() => {
-        musicOn = true;
-        soundBtn.textContent = '🔊';
-      }).catch(() => {});
+      startMusic();
     }
   });
 
@@ -191,29 +166,29 @@
 
   function onTap() {
     if (locked || step >= 2) return;
-    haptic();
     lockFor(900);
 
     if (step === 0) {
+      // Тап 1: конверт открывается, письмо выезжает вверх
       envelope.classList.add('opened');
       hint.textContent = 'Нажми ещё раз';
-      playMusic();
+      startMusic().then(ok => { if (ok) fadeIn(); });
       step = 1;
     } else if (step === 1) {
-      sun.classList.add('sun-visible');
-      neon.classList.add('visible');
+      // Тап 2: конверт и письмо улетают вверх, затем появляется солнце и надпись
+      envelope.classList.add('fly');
       hint.classList.add('hidden');
-      setTimeout(() => heartsActive = true, 2500);
+      setTimeout(() => envelope.classList.add('gone'), 1500);
+      setTimeout(() => {
+        sun.classList.add('sun-visible');
+        neon.classList.add('visible');
+      }, 1600);
+      setTimeout(() => { heartsActive = true; }, 1600 + 2500);
       step = 2;
     }
   }
 
-  envelope.addEventListener('click', onTap);
-  sun.addEventListener('click', onTap);
-  document.querySelector('.scene').addEventListener('click', e => {
-    if (e.target.closest('#envelope, #sound-toggle')) return;
-    onTap();
-  });
+  document.querySelector('.scene').addEventListener('click', onTap);
 
   // ---------- Запуск ----------
   resizeStars();
