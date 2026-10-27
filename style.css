@@ -126,9 +126,9 @@ body {
 /* ---------- Солнце ---------- */
 .sun {
   position: absolute;
-  top: 14%;
-  width: min(70vw, 260px);
-  height: min(70vw, 260px);
+  top: 12%;
+  width: min(74vw, 280px);
+  height: min(74vw, 280px);
   transform: scale(0.2);
   opacity: 0;
   filter: blur(14px);
@@ -142,77 +142,117 @@ body {
   transition: transform 2.2s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 2s ease, filter 2s ease;
 }
 
-.sun > div {
+.sun > div,
+.sun::before,
+.sun::after {
   position: absolute;
   border-radius: 50%;
+  pointer-events: none;
 }
 
-/* Мягкое ореольное свечение */
+/* Широкое тёплое свечение вокруг солнца, мерцает медленно */
 .sun .glow {
-  inset: -60%;
+  inset: -70%;
   background: radial-gradient(circle,
-    rgba(255, 214, 120, 0.55) 0%,
-    rgba(255, 150, 60, 0.22) 32%,
-    rgba(255, 110, 40, 0.06) 55%,
+    rgba(255, 214, 120, 0.5) 0%,
+    rgba(255, 150, 60, 0.2) 30%,
+    rgba(255, 100, 40, 0.06) 55%,
     transparent 70%);
-  animation: breathe 6s ease-in-out infinite;
+  animation: flicker 5s ease-in-out infinite;
 }
 
-/* Лучи: тонкие, неравномерные, плавно растворяются к краю */
+/* Длинные основные лучи: неравномерные по ширине, медленно вращаются */
 .sun .rays {
-  inset: -28%;
+  inset: -32%;
   background: repeating-conic-gradient(from 0deg,
-    rgba(255, 230, 150, 0.7) 0deg 1.2deg,
-    transparent 1.2deg 9deg,
-    rgba(255, 200, 110, 0.5) 9deg 10deg,
-    transparent 10deg 24deg,
-    rgba(255, 230, 150, 0.6) 24deg 25deg,
-    transparent 25deg 40deg);
-  -webkit-mask: radial-gradient(circle, transparent 30%, #000 42%, #000 58%, transparent 74%);
-          mask: radial-gradient(circle, transparent 30%, #000 42%, #000 58%, transparent 74%);
-  filter: blur(0.6px);
-  animation: spin 60s linear infinite;
+    rgba(255, 236, 170, 0.85) 0deg 0.7deg,
+    transparent 0.7deg 7deg,
+    rgba(255, 210, 120, 0.55) 7deg 8deg,
+    transparent 8deg 15deg,
+    rgba(255, 236, 170, 0.7) 15deg 15.8deg,
+    transparent 15.8deg 26deg,
+    rgba(255, 200, 110, 0.5) 26deg 27deg,
+    transparent 27deg 37deg);
+  -webkit-mask: radial-gradient(circle, transparent 30%, #000 40%, #000 60%, transparent 76%);
+          mask: radial-gradient(circle, transparent 30%, #000 40%, #000 60%, transparent 76%);
+  filter: blur(0.5px);
+  animation: spin 70s linear infinite;
 }
 
-/* Внешняя корона: пламя от центра к краю */
+/* Короткие лучи второго слоя, вращаются в обратную сторону */
+.sun::before {
+  content: '';
+  inset: -20%;
+  background: repeating-conic-gradient(from 12deg,
+    rgba(255, 180, 90, 0.5) 0deg 0.4deg,
+    transparent 0.4deg 5deg,
+    rgba(255, 220, 140, 0.35) 5deg 5.5deg,
+    transparent 5.5deg 13deg);
+  -webkit-mask: radial-gradient(circle, transparent 36%, #000 48%, transparent 70%);
+          mask: radial-gradient(circle, transparent 36%, #000 48%, transparent 70%);
+  filter: blur(1px);
+  animation: spin 45s linear infinite reverse;
+}
+
+/* Корона: плазма, неровный край из нескольких слоёв градиента */
 .sun .corona {
-  inset: 8%;
-  background: radial-gradient(circle,
-    #fffbe8 0%,
-    #ffe9a0 30%,
-    #ffc24a 52%,
-    #ff9a2e 68%,
-    rgba(255, 120, 40, 0.35) 80%,
-    transparent 88%);
-  filter: blur(3px);
-  animation: breathe 4s ease-in-out infinite;
+  inset: 6%;
+  background:
+    radial-gradient(circle at 48% 46%, rgba(255, 255, 240, 0.9) 0%, rgba(255, 240, 180, 0) 40%),
+    radial-gradient(circle,
+      #fffbe8 0%,
+      #ffe9a0 26%,
+      #ffc24a 46%,
+      #ff9a2e 62%,
+      rgba(255, 110, 40, 0.5) 74%,
+      transparent 84%);
+  filter: blur(2px);
+  animation: flicker 3.2s steps(7, end) infinite;
 }
 
-/* Ядро: яркий белый центр, тёплый край */
+/* Ядро: белый горячий центр, оранжевый лимб, блик сверху слева */
 .sun .core {
   inset: 26%;
-  background: radial-gradient(circle at 42% 38%,
-    #ffffff 0%,
-    #fff8d6 30%,
-    #ffe27a 62%,
-    #ffb830 88%,
-    #ff9a20 100%);
+  background:
+    radial-gradient(circle at 36% 32%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 28%),
+    radial-gradient(circle at 50% 50%,
+      #ffffff 0%,
+      #fff8d6 34%,
+      #ffe27a 62%,
+      #ffb830 86%,
+      #ff8a1e 100%);
   box-shadow:
-    0 0 18px rgba(255, 245, 200, 0.95),
-    0 0 42px rgba(255, 210, 110, 0.8),
-    0 0 90px rgba(255, 150, 50, 0.5);
+    0 0 14px rgba(255, 250, 220, 0.95),
+    0 0 36px rgba(255, 215, 120, 0.85),
+    0 0 80px rgba(255, 150, 50, 0.55);
+  animation: flicker 2.4s steps(5, end) infinite;
+}
+
+/* Лёгкий ореол-блик, как от линзы объектива */
+.sun::after {
+  content: '';
+  inset: 38% -6% auto;
+  height: 10%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255, 240, 200, 0.35) 0%, transparent 70%);
+  filter: blur(2px);
+  opacity: 0.7;
+  transform: rotate(-12deg);
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
-@keyframes breathe {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.82; transform: scale(1.04); }
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  20% { opacity: 0.88; }
+  35% { opacity: 1; }
+  60% { opacity: 0.93; }
+  80% { opacity: 1; }
 }
 
-/* ---------- Неоновый текст ---------- */
+/* ---------- Неоновый текст: огненное свечение ---------- */
 .neon-text {
   position: absolute;
   bottom: 14%;
@@ -222,12 +262,13 @@ body {
   font-family: 'Playfair Display', serif;
   font-size: 19px;
   line-height: 1.4;
-  color: #fff;
+  color: #fff6df;
   text-shadow:
-    0 0 6px #fff,
-    0 0 10px #ff7ab8,
-    0 0 20px #ffb347,
-    0 0 40px #ffb347;
+    0 0 3px #fff3c0,
+    0 0 8px #ffd27a,
+    0 0 16px #ff8a2b,
+    0 0 28px #ff5a10,
+    0 0 44px rgba(255, 60, 0, 0.6);
   opacity: 0;
   filter: blur(8px);
   pointer-events: none;
@@ -237,12 +278,31 @@ body {
   opacity: 1;
   filter: blur(0);
   transition: opacity 1.8s ease 1s, filter 1.8s ease 1s;
-  animation: pulse 2.5s ease-in-out 3s infinite;
+  animation: flame 3.4s steps(9, end) 3s infinite;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.75; }
+/* Огонь: тени слегка «дрожат» по яркости и размеру */
+@keyframes flame {
+  0%, 100% {
+    text-shadow: 0 0 3px #fff3c0, 0 0 8px #ffd27a, 0 0 16px #ff8a2b, 0 0 28px #ff5a10, 0 0 44px rgba(255, 60, 0, 0.6);
+    opacity: 1;
+  }
+  15% {
+    text-shadow: 0 0 3px #fff3c0, 0 0 10px #ffd98a, 0 0 20px #ff9a3b, 0 0 34px #ff6a18, 0 0 52px rgba(255, 70, 0, 0.7);
+    opacity: 0.96;
+  }
+  35% {
+    text-shadow: 0 0 2px #fff3c0, 0 0 6px #ffcd6a, 0 0 13px #ff7a20, 0 0 24px #ff4a08, 0 0 38px rgba(255, 50, 0, 0.5);
+    opacity: 0.9;
+  }
+  55% {
+    text-shadow: 0 0 3px #fff3c0, 0 0 9px #ffd88f, 0 0 18px #ff9a3b, 0 0 32px #ff5a10, 0 0 48px rgba(255, 60, 0, 0.65);
+    opacity: 1;
+  }
+  75% {
+    text-shadow: 0 0 2px #fff3c0, 0 0 7px #ffd27a, 0 0 15px #ff8a2b, 0 0 26px #ff5a10, 0 0 40px rgba(255, 60, 0, 0.55);
+    opacity: 0.94;
+  }
 }
 
 /* ---------- Подсказка ---------- */
