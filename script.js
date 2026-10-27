@@ -148,17 +148,26 @@
     }
 
     void main() {
-      vec3 p = vPos * 0.035 + vec3(0.0, 0.0, uTime * 0.15);
-      float n = fbm(p + fbm(p * 1.7 + uTime * 0.1));
-      float gran = smoothstep(0.35, 0.75, n);
-      vec3 base = mix(vec3(1.0, 0.42, 0.08), vec3(1.0, 0.93, 0.62), gran);
+      // Земля: океаны, материки и облака из шума, освещение с одной стороны
+      vec3 p = normalize(vPos) * 2.2;
+      float h = fbm(p * 1.3);
+      float land = smoothstep(0.5, 0.56, h);
+      float cloud = smoothstep(0.56, 0.82, fbm(p * 2.4 + vec3(uTime * 0.02, 0.0, 0.0)));
 
-      float ndv = clamp(dot(normalize(vNormal), vec3(0.0, 0.0, 1.0)), 0.0, 1.0);
-      float limb = pow(ndv, 0.45);
-      vec3 color = base * (0.55 + 0.7 * limb);
+      vec3 ocean = mix(vec3(0.03, 0.16, 0.42), vec3(0.06, 0.38, 0.70), fbm(p * 4.0));
+      vec3 grass = mix(vec3(0.15, 0.40, 0.14), vec3(0.45, 0.37, 0.20), smoothstep(0.55, 0.7, h));
+      vec3 surf = mix(ocean, grass, land);
+      surf = mix(surf, vec3(0.95, 0.97, 1.0), cloud * 0.8);
 
-      float rim = pow(1.0 - ndv, 2.5);
-      color += vec3(1.0, 0.5, 0.15) * rim * 0.9;
+      vec3 N = normalize(vNormal);
+      vec3 L = normalize(vec3(-0.6, 0.35, 0.75));
+      float ndl = max(dot(N, L), 0.0);
+      vec3 color = surf * (0.07 + 0.93 * ndl);
+
+      // Голубой ободок атмосферы по краю диска
+      float ndv = clamp(dot(N, vec3(0.0, 0.0, 1.0)), 0.0, 1.0);
+      float fres = pow(1.0 - ndv, 3.0);
+      color += vec3(0.25, 0.6, 1.0) * fres * (0.3 + ndl) * 0.7;
 
       gl_FragColor = vec4(color * uBright, 1.0);
     }`;
@@ -262,13 +271,13 @@
     // Корона: два спрайта разного размера
     const tex = makeGlowTexture();
     corona1 = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: tex, color: 0xffb35a, transparent: true, opacity: 0.9,
+      map: tex, color: 0x5ab4ff, transparent: true, opacity: 0.9,
       blending: THREE.AdditiveBlending, depthWrite: false
     }));
     corona1.scale.set(SUN_R * 6, SUN_R * 6, 1);
     corona1.position.copy(sun.position);
     corona2 = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: tex, color: 0xff6a1a, transparent: true, opacity: 0.35,
+      map: tex, color: 0x2a7bff, transparent: true, opacity: 0.35,
       blending: THREE.AdditiveBlending, depthWrite: false
     }));
     corona2.scale.set(SUN_R * 12, SUN_R * 12, 1);
@@ -324,6 +333,7 @@
     galaxy.material.opacity = Math.min(1, elapsed / 2000) * 0.9;
     galaxy.rotation.z += dt * 0.08;
     sunMat.uniforms.uTime.value = now * 0.001;
+    sun.rotation.y = now * 0.0004; // Земля медленно вращается
 
     // После появления надписи солнце чуть тускнеет (примерно на треть)
     const dimT = Math.max(0, Math.min(1, (now - (flightStart + FLIGHT_MS + 400)) / 3000));
