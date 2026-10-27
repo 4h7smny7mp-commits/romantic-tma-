@@ -102,7 +102,7 @@
   const STAR_RANGE = 1400;
 
   let renderer, scene, camera, starsGroup, starsGeom, starsLines, starData, starArr;
-  let galaxy, sun, sunMat;
+  let galaxy, sun, sunMat, corona1, corona2;
   let threeActive = false;
   let flightStart = 0;
   let lastNow = 0;
@@ -118,6 +118,7 @@
 
   const SUN_FRAG = `
     uniform float uTime;
+    uniform float uBright;
     varying vec3 vNormal;
     varying vec3 vPos;
 
@@ -159,7 +160,7 @@
       float rim = pow(1.0 - ndv, 2.5);
       color += vec3(1.0, 0.5, 0.15) * rim * 0.9;
 
-      gl_FragColor = vec4(color, 1.0);
+      gl_FragColor = vec4(color * uBright, 1.0);
     }`;
 
   function makeGlowTexture() {
@@ -250,7 +251,7 @@
 
     // 3D-солнце
     sunMat = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0 } },
+      uniforms: { uTime: { value: 0 }, uBright: { value: 1 } },
       vertexShader: SUN_VERT,
       fragmentShader: SUN_FRAG
     });
@@ -260,13 +261,13 @@
 
     // Корона: два спрайта разного размера
     const tex = makeGlowTexture();
-    const corona1 = new THREE.Sprite(new THREE.SpriteMaterial({
+    corona1 = new THREE.Sprite(new THREE.SpriteMaterial({
       map: tex, color: 0xffb35a, transparent: true, opacity: 0.9,
       blending: THREE.AdditiveBlending, depthWrite: false
     }));
     corona1.scale.set(SUN_R * 6, SUN_R * 6, 1);
     corona1.position.copy(sun.position);
-    const corona2 = new THREE.Sprite(new THREE.SpriteMaterial({
+    corona2 = new THREE.Sprite(new THREE.SpriteMaterial({
       map: tex, color: 0xff6a1a, transparent: true, opacity: 0.35,
       blending: THREE.AdditiveBlending, depthWrite: false
     }));
@@ -323,6 +324,13 @@
     galaxy.material.opacity = Math.min(1, elapsed / 2000) * 0.9;
     galaxy.rotation.z += dt * 0.08;
     sunMat.uniforms.uTime.value = now * 0.001;
+
+    // После появления надписи солнце чуть тускнеет (примерно на треть)
+    const dimT = Math.max(0, Math.min(1, (now - (flightStart + FLIGHT_MS + 400)) / 3000));
+    const bright = 1 - 0.3 * (dimT * dimT * (3 - 2 * dimT));
+    sunMat.uniforms.uBright.value = bright;
+    corona1.material.opacity = 0.9 * bright;
+    corona2.material.opacity = 0.35 * bright;
 
     renderer.render(scene, camera);
   }
