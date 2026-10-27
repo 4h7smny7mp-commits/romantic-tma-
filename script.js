@@ -1,17 +1,16 @@
 (() => {
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-  // ---------- Звёзды ----------
+  // ---------- Звёзды на фоне (2D) ----------
   const starsCanvas = document.getElementById('stars');
   const sctx = starsCanvas.getContext('2d');
-  let stars = [];
-  let shootingStar = null;
+  let bgStars = [];
 
-  function resizeStars() {
+  function resizeBgStars() {
     starsCanvas.width = window.innerWidth * dpr;
     starsCanvas.height = window.innerHeight * dpr;
     sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    stars = Array.from({ length: 150 }, () => ({
+    bgStars = Array.from({ length: 150 }, () => ({
       x: Math.random() * window.innerWidth,
       y: Math.random() * window.innerHeight,
       r: 0.3 + Math.random() * 1.5,
@@ -20,34 +19,14 @@
     }));
   }
 
-  function drawStars(t) {
+  function drawBgStars(t) {
     sctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-    for (const s of stars) {
+    sctx.fillStyle = '#fff';
+    for (const s of bgStars) {
       sctx.globalAlpha = 0.5 + 0.5 * Math.sin(t * s.speed + s.phase);
-      sctx.fillStyle = '#fff';
       sctx.beginPath();
       sctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
       sctx.fill();
-    }
-    if (!shootingStar && Math.random() < 0.002) {
-      shootingStar = {
-        x: Math.random() * window.innerWidth * 0.8,
-        y: Math.random() * window.innerHeight * 0.4,
-        vx: 6, vy: 3, life: 60
-      };
-    }
-    if (shootingStar) {
-      sctx.globalAlpha = shootingStar.life / 60;
-      sctx.strokeStyle = '#fff';
-      sctx.lineWidth = 1.5;
-      sctx.beginPath();
-      sctx.moveTo(shootingStar.x, shootingStar.y);
-      sctx.lineTo(shootingStar.x - shootingStar.vx * 6, shootingStar.y - shootingStar.vy * 6);
-      sctx.stroke();
-      shootingStar.x += shootingStar.vx;
-      shootingStar.y += shootingStar.vy;
-      shootingStar.life -= 1;
-      if (shootingStar.life <= 0) shootingStar = null;
     }
     sctx.globalAlpha = 1;
   }
@@ -103,10 +82,237 @@
     hctx.globalAlpha = 1;
   }
 
-  function loop(t) {
-    drawStars(t);
-    drawHearts(t);
-    requestAnimationFrame(loop);
+  // ---------- 3D: полёт к галактике и солнцу (three.js) ----------
+  const HAS_THREE = typeof THREE !== 'undefined';
+  const spaceCanvas = document.getElementById('space');
+  const FLIGHT_MS = 7500;
+  const SUN_Z = -900;      // положение солнца и центра галактики
+  const SUN_R = 70;        // радиус солнца
+  const END_Z = SUN_Z + 170; // где остановится камера
+  const STAR_COUNT = 1800;
+  const STAR_RANGE = 1400;
+
+  let renderer, scene, camera, starsGroup, starsGeom, starsLines, starData, starArr;
+  let galaxy, sun, sunMat;
+  let threeActive = false;
+  let flightStart = 0;
+  let lastNow = 0;
+
+  const SUN_VERT = `
+    varying vec3 vNormal;
+    varying vec3 vPos;
+    void main() {
+      vNormal = normalize(normalMatrix * normal);
+      vPos = position;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`;
+
+  const SUN_FRAG = `
+    uniform float uTime;
+    varying vec3 vNormal;
+    varying vec3 vPos;
+
+    float hash(vec3 p) {
+      p = fract(p * 0.3183099 + 0.1);
+      p *= 17.0;
+      return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+    }
+    float noise(vec3 x) {
+      vec3 i = floor(x);
+      vec3 f = fract(x);
+      f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x),
+                     mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                 mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                     mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+    }
+    float fbm(vec3 p) {
+      float v = 0.0;
+      float a = 0.5;
+      for (int i = 0; i < 5; i++) {
+        v += a * noise(p);
+        p *= 2.02;
+        a *= 0.5;
+      }
+      return v;
+    }
+
+    void main() {
+      vec3 p = vPos * 0.035 + vec3(0.0, 0.0, uTime * 0.15);
+      float n = fbm(p + fbm(p * 1.7 + uTime * 0.1));
+      float gran = smoothstep(0.35, 0.75, n);
+      vec3 base = mix(vec3(1.0, 0.42, 0.08), vec3(1.0, 0.93, 0.62), gran);
+
+      float ndv = clamp(dot(normalize(vNormal), vec3(0.0, 0.0, 1.0)), 0.0, 1.0);
+      float limb = pow(ndv, 0.45);
+      vec3 color = base * (0.55 + 0.7 * limb);
+
+      float rim = pow(1.0 - ndv, 2.5);
+      color += vec3(1.0, 0.5, 0.15) * rim * 0.9;
+
+      gl_FragColor = vec4(color, 1.0);
+    }`;
+
+  function makeGlowTexture() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 256;
+    const g = c.getContext('2d');
+    const grd = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+    grd.addColorStop(0, 'rgba(255,255,255,1)');
+    grd.addColorStop(0.2, 'rgba(255,240,200,0.8)');
+    grd.addColorStop(0.5, 'rgba(255,180,90,0.25)');
+    grd.addColorStop(1, 'rgba(255,120,40,0)');
+    g.fillStyle = grd;
+    g.fillRect(0, 0, 256, 256);
+    return new THREE.CanvasTexture(c);
+  }
+
+  function initThree() {
+    if (!HAS_THREE) return;
+
+    renderer = new THREE.WebGLRenderer({ canvas: spaceCanvas, alpha: true, antialias: true });
+    renderer.setPixelRatio(dpr);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000, 0);
+
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 5000);
+    camera.position.set(0, 0, 0);
+
+    // Звёздный туннель (линии-«штрихи» при полёте)
+    starData = [];
+    starArr = new Float32Array(STAR_COUNT * 6);
+    for (let i = 0; i < STAR_COUNT; i++) {
+      starData.push({
+        x: (Math.random() - 0.5) * 520,
+        y: (Math.random() - 0.5) * 340,
+        z: -Math.random() * STAR_RANGE
+      });
+    }
+    starsGeom = new THREE.BufferGeometry();
+    starsGeom.setAttribute('position', new THREE.BufferAttribute(starArr, 3));
+    starsLines = new THREE.LineSegments(starsGeom, new THREE.LineBasicMaterial({
+      color: 0xffffff, transparent: true, opacity: 0.85
+    }));
+    starsGroup = new THREE.Group();
+    starsGroup.add(starsLines);
+    scene.add(starsGroup);
+
+    // Спиральная галактика вокруг солнца
+    const GN = 7000;
+    const gPos = new Float32Array(GN * 3);
+    const gCol = new Float32Array(GN * 3);
+    const cCore = new THREE.Color(0xcfe3ff);
+    const cEdge = new THREE.Color(0xff9cd2);
+    const tmp = new THREE.Color();
+    for (let i = 0; i < GN; i++) {
+      const arm = i % 2;
+      const r = Math.pow(Math.random(), 0.7) * 380;
+      const theta = arm * Math.PI + r * 0.028 + (Math.random() - 0.5) * 0.6;
+      gPos[i * 3] = r * Math.cos(theta);
+      gPos[i * 3 + 1] = r * Math.sin(theta);
+      gPos[i * 3 + 2] = (Math.random() - 0.5) * 18 * (1 - r / 420);
+      tmp.copy(cCore).lerp(cEdge, r / 380);
+      const b = 0.6 + Math.random() * 0.4;
+      gCol[i * 3] = tmp.r * b;
+      gCol[i * 3 + 1] = tmp.g * b;
+      gCol[i * 3 + 2] = tmp.b * b;
+    }
+    const gGeom = new THREE.BufferGeometry();
+    gGeom.setAttribute('position', new THREE.BufferAttribute(gPos, 3));
+    gGeom.setAttribute('color', new THREE.BufferAttribute(gCol, 3));
+    galaxy = new THREE.Points(gGeom, new THREE.PointsMaterial({
+      size: 2.4, vertexColors: true, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    }));
+    galaxy.position.set(0, 0, SUN_Z);
+    galaxy.rotation.x = -1.05;
+    scene.add(galaxy);
+
+    // 3D-солнце
+    sunMat = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: SUN_VERT,
+      fragmentShader: SUN_FRAG
+    });
+    sun = new THREE.Mesh(new THREE.SphereGeometry(SUN_R, 64, 64), sunMat);
+    sun.position.set(0, 0, SUN_Z);
+    scene.add(sun);
+
+    // Корона: два спрайта разного размера
+    const tex = makeGlowTexture();
+    const corona1 = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: tex, color: 0xffb35a, transparent: true, opacity: 0.9,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    }));
+    corona1.scale.set(SUN_R * 6, SUN_R * 6, 1);
+    corona1.position.copy(sun.position);
+    const corona2 = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: tex, color: 0xff6a1a, transparent: true, opacity: 0.35,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    }));
+    corona2.scale.set(SUN_R * 12, SUN_R * 12, 1);
+    corona2.position.copy(sun.position);
+    scene.add(corona1, corona2);
+  }
+
+  function updateStars(speed, dt) {
+    const streak = Math.max(2, Math.min(speed * 0.06, 120));
+    for (let i = 0; i < STAR_COUNT; i++) {
+      const s = starData[i];
+      s.z += speed * dt;
+      if (s.z > 5) {
+        s.z -= STAR_RANGE;
+        s.x = (Math.random() - 0.5) * 520;
+        s.y = (Math.random() - 0.5) * 340;
+      }
+      const k = i * 6;
+      starArr[k] = s.x;
+      starArr[k + 1] = s.y;
+      starArr[k + 2] = s.z;
+      starArr[k + 3] = s.x;
+      starArr[k + 4] = s.y;
+      starArr[k + 5] = s.z - streak;
+    }
+    starsGeom.attributes.position.needsUpdate = true;
+  }
+
+  function easeInOutCubic(x) {
+    return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+  }
+
+  function updateSpace(now) {
+    const dt = Math.min(0.05, (now - lastNow) / 1000);
+    lastNow = now;
+    const elapsed = now - flightStart;
+    const t = Math.min(1, elapsed / FLIGHT_MS);
+    const p = easeInOutCubic(t);
+    const warp = Math.sin(Math.PI * t);      // 0 → 1 → 0 за время полёта
+
+    // Камера летит к солнцу
+    camera.position.z = END_Z * p;
+    camera.position.x = Math.sin(now * 0.0013) * 4 * warp;
+    camera.position.y = Math.sin(now * 0.0017) * 3 * warp;
+    camera.rotation.z = Math.sin(now * 0.001) * 0.015 * warp;
+    camera.lookAt(0, 0, -1e9); // смотрим вперёд по -Z
+
+    // Звёзды едут вместе с камерой; скорость — только во время полёта
+    starsGroup.position.copy(camera.position);
+    updateStars(t < 1 ? 60 + warp * 900 : 0, dt);
+
+    // Галактика проявляется и медленно вращается; солнце «дышит»
+    galaxy.material.opacity = Math.min(1, elapsed / 2000) * 0.9;
+    galaxy.rotation.z += dt * 0.08;
+    sunMat.uniforms.uTime.value = now * 0.001;
+
+    renderer.render(scene, camera);
+  }
+
+  function resizeThree() {
+    if (!HAS_THREE || !renderer) return;
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
   }
 
   // ---------- Музыка ----------
@@ -153,7 +359,6 @@
 
   // ---------- Сценарий ----------
   const envelope = document.getElementById('envelope');
-  const sun = document.getElementById('sun');
   const neon = document.getElementById('neon');
   const hint = document.getElementById('hint');
   let step = 0;
@@ -175,27 +380,44 @@
       startMusic().then(ok => { if (ok) fadeIn(); });
       step = 1;
     } else if (step === 1) {
-      // Тап 2: конверт и письмо улетают вверх, затем появляется солнце и надпись
+      // Тап 2: конверт улетает вверх, камера летит к галактике и солнцу
       envelope.classList.add('fly');
       hint.classList.add('hidden');
       setTimeout(() => envelope.classList.add('gone'), 1500);
-      setTimeout(() => {
-        sun.classList.add('sun-visible');
-        neon.classList.add('visible');
-      }, 1600);
-      setTimeout(() => { heartsActive = true; }, 1600 + 2500);
+
+      if (HAS_THREE) {
+        flightStart = performance.now();
+        threeActive = true;
+        spaceCanvas.classList.add('show');
+        setTimeout(() => neon.classList.add('visible'), FLIGHT_MS + 400);
+      } else {
+        // Без three.js полёта не будет: сразу показываем надпись
+        setTimeout(() => neon.classList.add('visible'), 1600);
+      }
+      setTimeout(() => { heartsActive = true; }, (HAS_THREE ? FLIGHT_MS : 1600) + 2900);
       step = 2;
     }
   }
 
   document.querySelector('.scene').addEventListener('click', onTap);
 
+  // ---------- Главный цикл ----------
+  function loop(now) {
+    drawBgStars(now);
+    drawHearts(now);
+    if (threeActive) updateSpace(now);
+    requestAnimationFrame(loop);
+  }
+
   // ---------- Запуск ----------
-  resizeStars();
+  resizeBgStars();
   resizeHearts();
+  initThree();
   window.addEventListener('resize', () => {
-    resizeStars();
+    resizeBgStars();
     resizeHearts();
+    resizeThree();
   });
+  lastNow = performance.now();
   requestAnimationFrame(loop);
 })();
