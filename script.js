@@ -256,7 +256,7 @@
     }));
     galaxy.position.set(0, 0, SUN_Z);
     galaxy.rotation.x = -1.05;
-    scene.add(galaxy);
+    // Галактика (кольца вокруг Земли) убрана по запросу: объект создаётся, но не добавляется в сцену
 
     // 3D-солнце
     sunMat = new THREE.ShaderMaterial({
