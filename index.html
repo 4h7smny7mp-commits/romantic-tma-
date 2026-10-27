@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Для Милы</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Comfortaa:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="stars"></canvas>
+
+  <div class="scene">
+    <div class="envelope" id="envelope">
+      <div class="flap"></div>
+      <div class="body"></div>
+      <div class="letter">
+        <p class="letter-text">Я люблю тебя, Мила.</p>
+      </div>
+    </div>
+
+    <div class="sun" id="sun">
+      <div class="rays"></div>
+      <div class="core"></div>
+    </div>
+
+    <p class="neon-text" id="neon">Даже солнце блекнет перед твоей красотой, красотой твоих глаз и красотой твоей души</p>
+
+    <p class="hint" id="hint">Нажми на конверт</p>
+  </div>
+
+  <canvas id="hearts"></canvas>
+
+  <button id="sound-toggle" aria-label="Звук">🔇</button>
+
+  <audio id="bg-music" src="music.mp3" loop preload="auto"></audio>
+
+  <script src="script.js"></script>
+</body>
+</html>
