@@ -36,7 +36,7 @@
   const hctx = heartsCanvas.getContext('2d');
   let hearts = [];
   let heartsActive = false;
-  const HEART_COLORS = ['#ff6b9a', '#ff3b5c', '#ffc94a'];
+  const HEART_COLORS = ['#ff2e9a', '#ff5ccf', '#ff8ae0'];
 
   function resizeHearts() {
     heartsCanvas.width = window.innerWidth * dpr;
@@ -64,8 +64,17 @@
     hctx.bezierCurveTo(x - size / 2, y + size / 2, x, y + size * 0.7, x, y + size);
     hctx.bezierCurveTo(x, y + size * 0.7, x + size / 2, y + size / 2, x + size / 2, y + size / 4);
     hctx.bezierCurveTo(x + size / 2, y, x, y, x, y + size / 4);
+    // Неон: яркая заливка, розовое свечение и светлый контур
+    hctx.save();
+    hctx.shadowColor = color;
+    hctx.shadowBlur = size * 0.9;
     hctx.fillStyle = color;
     hctx.fill();
+    hctx.shadowBlur = 0;
+    hctx.lineWidth = Math.max(1, size * 0.08);
+    hctx.strokeStyle = 'rgba(255, 220, 245, 0.9)';
+    hctx.stroke();
+    hctx.restore();
   }
 
   function drawHearts(t) {
@@ -83,7 +92,7 @@
   }
 
   // ---------- 3D: полёт к галактике и солнцу (three.js) ----------
-  const HAS_THREE = typeof THREE !== 'undefined';
+  let HAS_THREE = typeof THREE !== 'undefined';
   const spaceCanvas = document.getElementById('space');
   const FLIGHT_MS = 7500;
   const SUN_Z = -900;      // положение солнца и центра галактики
@@ -169,7 +178,17 @@
 
   function initThree() {
     if (!HAS_THREE) return;
+    try {
+      buildSpace();
+    } catch (err) {
+      // Если WebGL недоступен (например, в старом Safari), сайт работает без полёта
+      console.warn('3D недоступен:', err);
+      HAS_THREE = false;
+      spaceCanvas.classList.remove('show');
+    }
+  }
 
+  function buildSpace() {
     renderer = new THREE.WebGLRenderer({ canvas: spaceCanvas, alpha: true, antialias: true });
     renderer.setPixelRatio(dpr);
     renderer.setSize(window.innerWidth, window.innerHeight);
